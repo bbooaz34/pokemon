@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>רשימת קניות ליפן — Live</title>
+  <style>
+    :root{
+      --bg:#0f1221; --panel:#171a2b; --muted:#98a2b3; --text:#e6e7ee; --accent:#6ee7ff;
+      --accent-2:#a78bfa; --ok:#34d399; --warn:#f59e0b; --danger:#ef4444;
+      --border:#242843;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background:linear-gradient(180deg,#0c1020, #0b0e1a 60%, #090b14); color:var(--text);
+    }
+    header{
+      position:sticky; top:0; z-index:50; backdrop-filter:saturate(1.2) blur(10px);
+      background:rgba(10,14,30,.7); border-bottom:1px solid var(--border);
+    }
+    .wrap{max-width:1100px; margin:0 auto; padding:16px}
+    .title-row{display:flex; gap:12px; align-items:center; justify-content:space-between}
+    h1{font-size:22px; margin:0; letter-spacing:.2px}
+    .tag{font-size:12px; color:var(--muted); border:1px solid var(--border); padding:2px 8px; border-radius:999px}
+    .row{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    input, select, button, textarea{
+      font: inherit;
+      background:#0f1328; color:var(--text); border:1px solid var(--border); border-radius:10px;
+      padding:10px 12px;
+    }
+    input::placeholder{color:#6b7280}
+    button{
+      background:linear-gradient(180deg,#1b2040,#151936); cursor:pointer; border:1px solid #242953;
+      transition:.15s transform ease, .15s background ease, .15s box-shadow ease;
+    }
+    button:hover{transform:translateY(-1px); box-shadow:0 8px 30px rgba(0,0,0,.25)}
+    button.accent{background:linear-gradient(180deg,#1d274a,#162042); border-color:#28306b}
+    .icon-btn{display:inline-flex; align-items:center; gap:8px}
+    .pill{padding:8px 12px; border-radius:999px; border:1px solid var(--border); color:var(--muted); cursor:pointer}
+    .pill.active{color:#0a1628; background:linear-gradient(180deg,#89f7fe,#66a6ff); border:none}
+    .toolbar{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(240px,1fr)); gap:14px; margin-top:14px}
+    .card{
+      background:radial-gradient(120% 140% at 10% -10%, rgba(255,255,255,.05), transparent 40%), var(--panel);
+      border:1px solid var(--border); border-radius:16px; overflow:hidden; display:flex; flex-direction:column;
+    }
+    .card .img{
+      aspect-ratio:16/10; background:#0c0f1c; display:grid; place-items:center; overflow:hidden;
+    }
+    .card img{width:100%; height:100%; object-fit:cover}
+    .card .body{padding:12px; display:flex; flex-direction:column; gap:8px}
+    .name{font-weight:600}
+    .muted{color:var(--muted); font-size:12px}
+    .price{font-weight:700}
+    .chip{display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background:#0f1328; border:1px solid var(--border); color:#cbd5e1; font-size:12px}
+    .chips{display:flex; gap:6px; flex-wrap:wrap}
+    .actions{display:flex; gap:8px; margin-top:8px}
+    .actions a, .actions button{flex:1; text-align:center; text-decoration:none}
+    .empty{padding:36px; text-align:center; color:var(--muted); border:1px dashed var(--border); border-radius:12px}
+    .footer{margin:50px 0 24px; text-align:center; color:var(--muted); font-size:12px}
+    .split{display:grid; grid-template-columns:1.4fr .6fr; gap:12px}
+    @media (max-width:900px){.split{grid-template-columns:1fr}}
+    /* modal */
+    dialog{
+      border:none; padding:0; border-radius:16px; background:var(--panel); color:var(--text);
+      box-shadow:0 30px 80px rgba(0,0,0,.5); max-width:min(720px, 96vw);
+    }
+    dialog::backdrop{background:rgba(0,0,0,.6)}
+    .modal-head{padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between}
+    .modal-body{padding:16px}
+    .close{background:#0f1328}
+    .link{color:#9ecbff; text-decoration:none}
+    /* forms */
+    form.grid{grid-template-columns:1fr 1fr; gap:10px}
+    form.grid .full{grid-column:1 / -1}
+    .hint{font-size:12px; color:var(--muted)}
+    .danger{color:#fecaca}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="title-row">
+        <div class="row">
+          <h1>🛒 רשימת קניות ליפן</h1>
+          <span class="tag" id="lastSaved">לא נשמר עדיין</span>
+        </div>
+        <div class="toolbar">
+          <input id="q" placeholder="חפש פריט..." />
+          <select id="sort">
+            <option value="recent">מיון: נוספו לאחרונה</option>
+            <option value="priceAsc">מחיר: מהנמוך לגבוה</option>
+            <option value="priceDesc">מחיר: מהגבוה לנמוך</option>
+            <option value="name">שם: א-ת</option>
+          </select>
+          <button id="toggleAdmin" class="icon-btn accent">⚙️ מצב עריכה</button>
+          <button id="exportBtn" class="icon-btn">⬇️ ייצוא</button>
+          <label class="icon-btn" style="cursor:pointer">
+            ⬆️ ייבוא
+            <input id="importFile" type="file" accept="application/json" style="display:none" />
+          </label>
+        </div>
+      </div>
+      <div class="toolbar" style="margin-top:10px; overflow:auto">
+        <div id="catBar" class="row"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="split">
+      <section>
+        <div id="list" class="grid"></div>
+        <div id="empty" class="empty" style="display:none">אין פריטים תואמים. נסה להסיר פילטרים או חיפוש.</div>
+      </section>
+      <aside id="adminPanel" style="display:none">
+        <div class="card" style="padding:12px">
+          <h3 style="margin:4px 0 10px">➕ הוסף/ערוך פריט</h3>
+          <form id="itemForm" class="grid">
+            <input class="full" name="id" type="hidden"/>
+            <label>שם פריט<input name="name" required placeholder="Nintendo Game Boy (DMG-01)"/></label>
+            <label>קטגוריה
+              <select name="category" id="categorySelect"></select>
+            </label>
+            <label>מחיר ממוצע (¥) <input name="price" type="number" min="0" step="1" placeholder="12000"/></label>
+            <label>היכן לקנות (שם חנות) <input name="store" placeholder="Suruga-ya Akihabara Main"/></label>
+            <label class="full">קישור לתמונה <input name="imageUrl" placeholder="https://..."/></label>
+            <label class="full">קישור מפה/חנות <input name="mapUrl" placeholder="https://maps.google.com/?q=..."/></label>
+            <label class="full">הערות <textarea name="notes" rows="3" placeholder="מצב טוב, לשים לב לגרסה יפנית"></textarea></label>
+            <div class="row" style="justify-content:flex-end; width:100%">
+              <button type="button" id="resetForm">נקה</button>
+              <button type="submit" class="accent">שמור פריט</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card" style="padding:12px; margin-top:12px">
+          <h3 style="margin:4px 0 10px">📚 קטגוריות</h3>
+          <form id="catForm" class="row">
+            <input id="newCat" placeholder="הוסף קטגוריה (לדוגמה: קלפי פוקימון)"/>
+            <button id="addCat" type="button">הוסף</button>
+          </form>
+          <div id="catList" class="chips" style="margin-top:8px"></div>
+          <p class="hint">גרור/י כדי לשנות סדר. לחיצה כפולה תמחק.</p>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <dialog id="view">
+    <div class="modal-head">
+      <div class="row"><strong id="viewName"></strong><span id="viewCat" class="chip"></span></div>
+      <button class="close" onclick="view.close()">סגור</button>
+    </div>
+    <div class="modal-body">
+      <div class="grid" style="grid-template-columns: 1.2fr .8fr">
+        <div class="card">
+          <div class="img"><img id="viewImg" alt=""></div>
+        </div>
+        <div>
+          <div class="row" style="justify-content:space-between">
+            <div class="price" id="viewPrice"></div>
+            <span class="muted" id="viewStore"></span>
+          </div>
+          <div id="viewNotes" style="margin:8px 0 12px"></div>
+          <div class="actions">
+            <a id="viewMap" class="button pill" target="_blank" rel="noopener">פתח מפה</a>
+            <button id="editBtn" class="pill">ערוך</button>
+            <button id="deleteBtn" class="pill" style="color:#fecaca">מחק</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <div class="footer">נשמר ב-<span id="savedAt">—</span>. טיפים: ניתן לייצא/לייבא קובץ JSON לשיתוף בין מכשירים.</div>
+
+<script>
+  // --- Data Model ---
+  const DEFAULT_DATA = {
+    categories: ["קלפי פוקימון","משחקי גמבוי","קונסולות","מרצ׳נדייז","וינטאג׳","עוד"],
+    items: [],
+    lastSaved: null,
+    version: 1
+  };
+
+  const store = {
+    key: "jpShoppingListV1",
+    load(){
+      try{
+        const raw = localStorage.getItem(this.key);
+        if(!raw) return structuredClone(DEFAULT_DATA);
+        const data = JSON.parse(raw);
+        // shallow migration
+        return {...structuredClone(DEFAULT_DATA), ...data};
+      }catch(e){
+        console.error(e);
+        return structuredClone(DEFAULT_DATA);
+      }
+    },
+    save(data){
+      localStorage.setItem(this.key, JSON.stringify(data));
+      data.lastSaved = Date.now();
+      renderSavedAt(data.lastSaved);
+    },
+    export(data){
+      const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "jp-shopping-list.json"; a.click();
+      setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    }
+  };
+
+  let state = store.load();
+  let filter = {cat:"הכל", q:"", sort:"recent"};
+
+  // --- Elements ---
+  const el = sel => document.querySelector(sel);
+  const els = sel => Array.from(document.querySelectorAll(sel));
+  const list = el("#list");
+  const empty = el("#empty");
+  const catBar = el("#catBar");
+  const catSelect = el("#categorySelect");
+  const catList = el("#catList");
+  const q = el("#q");
+  const sort = el("#sort");
+  const adminPanel = el("#adminPanel");
+  const toggleAdmin = el("#toggleAdmin");
+  const exportBtn = el("#exportBtn");
+  const importFile = el("#importFile");
+  const itemForm = el("#itemForm");
+  const resetFormBtn = el("#resetForm");
+  const newCatInp = el("#newCat");
+  const addCatBtn = el("#addCat");
+  const lastSaved = el("#lastSaved");
+  const savedAt = el("#savedAt");
+
+  const view = el("#view");
+  const viewName = el("#viewName");
+  const viewCat = el("#viewCat");
+  const viewImg = el("#viewImg");
+  const viewPrice = el("#viewPrice");
+  const viewStore = el("#viewStore");
+  const viewNotes = el("#viewNotes");
+  const viewMap = el("#viewMap");
+  const editBtn = el("#editBtn");
+  const deleteBtn = el("#deleteBtn");
+
+  // --- UI Renderers ---
+  function renderSavedAt(ts){
+    if(!ts){ lastSaved.textContent="לא נשמר עדיין"; savedAt.textContent="—"; return; }
+    const d = new Date(ts);
+    const fmt = d.toLocaleString('he-IL', {hour12:false});
+    lastSaved.textContent = "נשמר: "+fmt;
+    savedAt.textContent = fmt;
+  }
+
+  function renderCats(){
+    catBar.innerHTML = "";
+    const allBtn = document.createElement("button");
+    allBtn.className = "pill"+(filter.cat==="הכל" ? " active": "");
+    allBtn.textContent = "הכל";
+    allBtn.onclick = ()=>{ filter.cat="הכל"; render(); };
+    catBar.appendChild(allBtn);
+
+    state.categories.forEach((c,i)=>{
+      const b = document.createElement("button");
+      b.className = "pill"+(filter.cat===c ? " active": "");
+      b.textContent = c;
+      b.onclick = ()=>{ filter.cat=c; render(); };
+      catBar.appendChild(b);
+    });
+
+    // Fill category select
+    catSelect.innerHTML = "";
+    state.categories.forEach(c=>{
+      const opt = document.createElement("option");
+      opt.value = c; opt.textContent = c; catSelect.appendChild(opt);
+    });
+
+    // editable list (chips)
+    catList.innerHTML = "";
+    state.categories.forEach((c, idx)=>{
+      const chip = document.createElement("div");
+      chip.className = "chip";
+      chip.draggable = true;
+      chip.textContent = c;
+      chip.ondblclick = ()=>{
+        if(confirm("למחוק קטגוריה '"+c+"'? (הפריטים לא יימחקו)")){
+          state.categories.splice(idx,1);
+          // Reassign items in removed category to "עוד"
+          state.items = state.items.map(it => it.category===c ? {...it, category:"עוד"} : it);
+          store.save(state); render();
+        }
+      };
+      chip.ondragstart = e=> e.dataTransfer.setData("text/plain", idx);
+      chip.ondragover = e=> e.preventDefault();
+      chip.ondrop = e=>{
+        e.preventDefault();
+        const from = +e.dataTransfer.getData("text/plain");
+        const to = idx;
+        const arr = state.categories;
+        const [m] = arr.splice(from,1);
+        arr.splice(to,0,m);
+        store.save(state); renderCats();
+      };
+      catList.appendChild(chip);
+    });
+  }
+
+  function renderList(){
+    const qlc = filter.q.trim().toLowerCase();
+    let items = state.items.filter(it => {
+      const okCat = filter.cat==="הכל" || it.category===filter.cat;
+      const okQ = !qlc || (it.name.toLowerCase().includes(qlc) || (it.store||"").toLowerCase().includes(qlc));
+      return okCat && okQ;
+    });
+    switch(filter.sort){
+      case "priceAsc": items.sort((a,b)=>(a.price||0)-(b.price||0)); break;
+      case "priceDesc": items.sort((a,b)=>(b.price||0)-(a.price||0)); break;
+      case "name": items.sort((a,b)=>a.name.localeCompare(b.name,"he")); break;
+      default: items.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)); break;
+    }
+    list.innerHTML = "";
+    items.forEach(it => list.appendChild(card(it)));
+    empty.style.display = items.length ? "none":"block";
+  }
+
+  function card(it){
+    const div = document.createElement("div");
+    div.className = "card";
+    const imgDiv = document.createElement("div");
+    imgDiv.className = "img";
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.alt = it.name;
+    img.src = it.imageUrl || "";
+    img.onerror = ()=> img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250'><rect width='100%' height='100%' fill='%230b0f1c'/><text x='50%' y='50%' fill='%23a3a3a3' font-family='Arial' font-size='14' text-anchor='middle'>אין תמונה</text></svg>`);
+    imgDiv.appendChild(img);
+    const body = document.createElement("div");
+    body.className = "body";
+    const name = document.createElement("div");
+    name.className = "name"; name.textContent = it.name;
+    const meta = document.createElement("div");
+    const price = it.price ? `¥${Number(it.price).toLocaleString("en-US")}` : "—";
+    meta.innerHTML = `<span class="price">${price}</span> · <span class="muted">${it.store||""}</span>`;
+    const chips = document.createElement("div");
+    chips.className = "chips";
+    const c = document.createElement("span"); c.className="chip"; c.textContent = it.category; chips.appendChild(c);
+    const actions = document.createElement("div");
+    actions.className = "actions";
+    const a1 = document.createElement("button");
+    a1.textContent = "פרטים";
+    a1.onclick = ()=> openView(it.id);
+    actions.appendChild(a1);
+    const a2 = document.createElement("a");
+    a2.textContent = "מפה";
+    a2.target="_blank"; a2.rel="noopener"; a2.href = it.mapUrl || "#";
+    actions.appendChild(a2);
+    body.append(name, meta, chips, actions);
+    div.append(imgDiv, body);
+    return div;
+  }
+
+  function render(){
+    renderCats();
+    renderList();
+    renderSavedAt(state.lastSaved);
+  }
+
+  // --- View / Edit ---
+  function openView(id){
+    const it = state.items.find(x=>x.id===id);
+    if(!it) return;
+    viewName.textContent = it.name;
+    viewCat.textContent = it.category;
+    viewImg.src = it.imageUrl || "";
+    viewPrice.textContent = it.price ? "מחיר ממוצע: ¥"+Number(it.price).toLocaleString("en-US") : "—";
+    viewStore.textContent = it.store || "";
+    viewNotes.textContent = it.notes || "";
+    viewMap.href = it.mapUrl || "#";
+    editBtn.onclick = ()=>{
+      view.close(); fillForm(it);
+      adminPanel.scrollIntoView({behavior:"smooth"});
+      if(adminPanel.style.display==="none"){ toggleAdmin.click(); }
+    };
+    deleteBtn.onclick = ()=>{
+      if(confirm("למחוק את '"+it.name+"'?")){
+        state.items = state.items.filter(x=>x.id!==id);
+        store.save(state); view.close(); render();
+      }
+    };
+    view.showModal();
+  }
+
+  function genId(){ return Math.random().toString(36).slice(2) + Date.now().toString(36); }
+
+  function clearForm(){
+    itemForm.reset();
+    itemForm.querySelector("[name=id]").value = "";
+    catSelect.value = state.categories[0] || "עוד";
+  }
+
+  function fillForm(it){
+    itemForm.querySelector("[name=id]").value = it.id;
+    itemForm.querySelector("[name=name]").value = it.name || "";
+    itemForm.querySelector("[name=category]").value = it.category || state.categories[0];
+    itemForm.querySelector("[name=price]").value = it.price || "";
+    itemForm.querySelector("[name=store]").value = it.store || "";
+    itemForm.querySelector("[name=imageUrl]").value = it.imageUrl || "";
+    itemForm.querySelector("[name=mapUrl]").value = it.mapUrl || "";
+    itemForm.querySelector("[name=notes]").value = it.notes || "";
+  }
+
+  // --- Events ---
+  q.addEventListener("input", ()=>{ filter.q = q.value; renderList(); });
+  sort.addEventListener("change", ()=>{ filter.sort = sort.value; renderList(); });
+  toggleAdmin.addEventListener("click", ()=>{
+    const isOpen = adminPanel.style.display !== "none";
+    adminPanel.style.display = isOpen ? "none":"block";
+  });
+  exportBtn.addEventListener("click", ()=> store.export(state));
+  importFile.addEventListener("change", async (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const text = await file.text();
+    try{
+      const data = JSON.parse(text);
+      // basic validation
+      if(!Array.isArray(data.items) || !Array.isArray(data.categories)) throw new Error("קובץ לא תקין");
+      state = {...structuredClone(DEFAULT_DATA), ...data};
+      store.save(state); render();
+      alert("הנתונים יובאו בהצלחה.");
+    }catch(err){
+      alert("שגיאה בייבוא: "+err.message);
+    }
+    e.target.value = "";
+  });
+
+  resetFormBtn.addEventListener("click", clearForm);
+
+  itemForm.addEventListener("submit", (e)=>{
+    e.preventDefault();
+    const fd = new FormData(itemForm);
+    const obj = Object.fromEntries(fd.entries());
+    const price = obj.price ? Number(obj.price) : null;
+    const clean = {
+      id: obj.id || genId(),
+      name: obj.name.trim(),
+      category: obj.category,
+      price: Number.isFinite(price) ? price : null,
+      store: obj.store.trim(),
+      imageUrl: obj.imageUrl.trim(),
+      mapUrl: obj.mapUrl.trim(),
+      notes: obj.notes.trim(),
+      createdAt: obj.id ? (state.items.find(x=>x.id===obj.id)?.createdAt || Date.now()) : Date.now()
+    };
+    // update or insert
+    const idx = state.items.findIndex(x=>x.id===clean.id);
+    if(idx>-1){ state.items[idx] = clean; } else { state.items.unshift(clean); }
+    store.save(state);
+    renderList();
+    clearForm();
+  });
+
+  addCatBtn.addEventListener("click", ()=>{
+    const name = (newCatInp.value||"").trim();
+    if(!name) return;
+    if(state.categories.includes(name)){ alert("קטגוריה קיימת"); return; }
+    state.categories.push(name);
+    store.save(state); newCatInp.value=""; renderCats();
+  });
+
+  // Keyboard: Enter adds category from input
+  newCatInp.addEventListener("keydown", (e)=>{
+    if(e.key==="Enter"){ e.preventDefault(); addCatBtn.click(); }
+  });
+
+  // Initial
+  render();
+</script>
+</body>
+</html>
